@@ -1,0 +1,10 @@
+# Firebase の管理者用秘密鍵 - 絶対にコミットしない
+serviceAccountKey.json
+*.pem
+*.key
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+.venv/
+venv/

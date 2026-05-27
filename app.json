@@ -2,6 +2,7 @@
   "expo": {
     "name": "V-HUB",
     "slug": "vhub",
+    "scheme": "vhub", 
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -16,7 +17,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.vhub"
+      "bundleIdentifier": "com.yourname.vhub",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCalendarsUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
+        "NSCalendarsFullAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
+        "NSUserTrackingUsageDescription": "お客様の興味に合わせた広告を表示するために、データへのアクセスを許可してください。"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,6 +41,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-calendar",
       [
         "react-native-google-mobile-ads",
         {
