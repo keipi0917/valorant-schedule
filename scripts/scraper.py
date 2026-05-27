@@ -211,8 +211,17 @@ def _parse_match_card(card, default_date: str, is_results: bool) -> Optional[Mat
         def _extract(container):
             name_node = container.select_one(".match-item-vs-team-name .text-of") or container.select_one(".text-of")
             name = name_node.get_text(strip=True) if name_node else ""
+            # lazy-load 対応で data-src / data-original もチェック
             img = container.select_one("img")
-            logo = _absolutize(img.get("src", "")) if img else None
+            logo = None
+            if img:
+                src = (
+                    img.get("src")
+                    or img.get("data-src")
+                    or img.get("data-original")
+                    or ""
+                )
+                logo = _absolutize(src)
             return name, logo
 
         team1_name, team1_logo = _extract(team_containers[0])
@@ -291,31 +300,83 @@ def _shift_to_jst(time_text: str) -> str:
     return f"{hour:02d}:{minute:02d}"
 
 
-def _parse_listing(html: str, is_results: bool) -> list[MatchEvent]:
+def _parse_listing(html: str, is_results: bool) -> tuple[list[MatchEvent], list[str]]:
+    """Parse a listing page. Returns (events, all_dates_seen).
+    各 match-item の "直前にある wf-label" を find_previous で探す方式に変更
+    (前のセレクタ列挙方式だと DOM 構造が深いとラベルを取りこぼしていた)
+    """
     soup = BeautifulSoup(html, "html.parser")
     events: list[MatchEvent] = []
+    all_dates: list[str] = []
 
-    # vlr.gg の一覧は <div class="wf-label mod-large">YYYY-MM-DD</div> のあとに <a class="match-item"> が並ぶ
-    current_date = ""
-    for node in soup.select(".wf-card-wrap > div, .wf-card > div, .wf-label, a.match-item"):
-        if "wf-label" in (node.get("class") or []):
-            # ラベルから日付らしき文字列を取り出す
-            label_text = node.get_text(" ", strip=True)
-            current_date = _extract_date(label_text)
-            continue
-        if node.name == "a" and "match-item" in (node.get("class") or []):
-            ev = _parse_match_card(node, current_date, is_results)
-            if ev:
-                events.append(ev)
-    return events
+    # ページ内の全 wf-label を先に集めて since_date 判定用に保持
+    for label in soup.find_all(class_="wf-label"):
+        d = _extract_date(label.get_text(" ", strip=True))
+        if d:
+            all_dates.append(d)
+
+    # 各 match-item は直前の wf-label が日付セクション
+    for match in soup.find_all("a", class_="match-item"):
+        prev_label = match.find_previous(class_="wf-label")
+        if prev_label:
+            current_date = _extract_date(prev_label.get_text(" ", strip=True))
+        else:
+            current_date = ""
+        ev = _parse_match_card(match, current_date, is_results)
+        if ev:
+            events.append(ev)
+
+    return events, all_dates
+
+
+_MONTHS = {
+    "jan": 1, "january": 1,
+    "feb": 2, "february": 2,
+    "mar": 3, "march": 3,
+    "apr": 4, "april": 4,
+    "may": 5,
+    "jun": 6, "june": 6,
+    "jul": 7, "july": 7,
+    "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10,
+    "nov": 11, "november": 11,
+    "dec": 12, "december": 12,
+}
 
 
 def _extract_date(label: str) -> str:
-    """ラベル文字列('Today', 'Wed, Jan 10, 2025' 等)から YYYY-MM-DD を抽出。失敗時は空文字。"""
+    """ラベル文字列から YYYY-MM-DD を抽出。
+    'Wed, Jan 10, 2025' / 'May 18, 2026' / 'Mon, May 18, 2026 Yesterday' などに対応。
+    'Today/Yesterday/Tomorrow' のみのラベルは現在時刻基準で解決する。
+    """
     from datetime import datetime, timezone, timedelta
 
     jst = timezone(timedelta(hours=9))
     today = datetime.now(jst).date()
+
+    if not label:
+        return ""
+
+    # 月名 + 日 + 年 の組み合わせを regex で拾う(順序ずれや末尾 'Today' 等にも耐える)
+    m = re.search(r"\b([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b", label)
+    if m:
+        month_key = m.group(1).lower()
+        if month_key in _MONTHS:
+            try:
+                return datetime(int(m.group(3)), _MONTHS[month_key], int(m.group(2))).date().isoformat()
+            except ValueError:
+                pass
+
+    # ISO 形式 (2026-05-18)
+    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", label)
+    if m:
+        try:
+            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date().isoformat()
+        except ValueError:
+            pass
+
+    # 相対 (Today/Yesterday/Tomorrow)
     text = label.lower()
     if "today" in text:
         return today.isoformat()
@@ -323,11 +384,7 @@ def _extract_date(label: str) -> str:
         return (today - timedelta(days=1)).isoformat()
     if "tomorrow" in text:
         return (today + timedelta(days=1)).isoformat()
-    for fmt in ("%a, %b %d, %Y", "%A, %B %d, %Y", "%b %d, %Y", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(label.strip(), fmt).date().isoformat()
-        except ValueError:
-            continue
+
     return ""
 
 
@@ -340,16 +397,31 @@ def fetch(url: str) -> str:
 
 def scrape_upcoming() -> list[MatchEvent]:
     print("[scrape] upcoming")
-    return _parse_listing(fetch(UPCOMING_URL), is_results=False)
+    events, _ = _parse_listing(fetch(UPCOMING_URL), is_results=False)
+    return events
 
 
-def scrape_results(pages: int = 2) -> list[MatchEvent]:
-    print(f"[scrape] results x{pages}")
+def scrape_results(pages: int = 2, since_date: Optional[str] = None) -> list[MatchEvent]:
+    """結果ページを paginate。
+    since_date (YYYY-MM-DD) を指定すると、ページ内の全日付が since_date より前
+    になったら停止する。pages は安全上限としても機能する。
+    """
+    label = f"pages<={pages}" + (f" since={since_date}" if since_date else "")
+    print(f"[scrape] results {label}")
     out: list[MatchEvent] = []
     for p in range(1, pages + 1):
         url = RESULTS_URL if p == 1 else f"{RESULTS_URL}/?page={p}"
-        out.extend(_parse_listing(fetch(url), is_results=True))
+        events, dates_on_page = _parse_listing(fetch(url), is_results=True)
+        out.extend(events)
         time.sleep(1.0)  # vlr.gg に優しく
+
+        if since_date and dates_on_page:
+            min_date = min(dates_on_page)
+            max_date = max(dates_on_page)
+            print(f"  page {p}: dates {min_date} ~ {max_date}, events {len(events)} (cumulative {len(out)})")
+            if max_date < since_date:
+                print(f"[scrape] page {p} 全日付が {since_date} より前なので停止")
+                break
     return out
 
 
@@ -429,6 +501,97 @@ def fill_logos_from_cache(events: list, cache: dict) -> int:
             if ev.team2_logo:
                 filled += 1
     return filled
+
+
+def fetch_team_logos_from_match_page(match_url: str) -> dict:
+    """1つの match ページを訪問して team_name -> logo_url を抜き出す。
+    vlr.gg の match ページのヘッダには .match-header-link (a tag, /team/<id>/<slug> へのリンク)
+    が2つあり、その中に img と .wf-title-med (チーム名) が入っている。
+    """
+    try:
+        html = fetch(match_url)
+    except Exception as e:
+        print(f"  match page fetch failed: {match_url} ({e})")
+        return {}
+
+    soup = BeautifulSoup(html, "html.parser")
+    out: dict = {}
+
+    # ヘッダ内のチーム情報を抽出。複数のセレクタを順に試す。
+    candidates = soup.select(
+        "a.match-header-link, a.match-header-vs-team, a.wf-link-hover.match-header-link"
+    )
+    for link in candidates:
+        href = link.get("href") or ""
+        if not href.startswith("/team/"):
+            continue
+        # 名前
+        name_node = (
+            link.select_one(".match-header-link-name .wf-title-med")
+            or link.select_one(".wf-title-med")
+            or link.select_one(".text-of")
+        )
+        name = name_node.get_text(strip=True) if name_node else ""
+        if not name:
+            continue
+        # ロゴ
+        img = link.select_one("img")
+        if not img:
+            continue
+        src = img.get("src") or img.get("data-src") or img.get("data-original") or ""
+        logo = _absolutize(src)
+        if logo:
+            out[_name_key(name)] = logo
+    return out
+
+
+def enrich_missing_logos_via_match_pages(
+    events: list, cache: dict, max_pages: int = 80
+) -> int:
+    """ロゴが欠けている events について、match ページを訪問してロゴを補完する。
+    同じチームの2回目以降はキャッシュで弾く。max_pages で訪問上限を設ける。
+    """
+    # 「ロゴが欠けているチーム」のセット
+    missing_team_keys: set = set()
+    for ev in events:
+        names = (ev.teams or "").split(" vs ")
+        if len(names) < 2:
+            continue
+        for name, logo in ((names[0], ev.team1_logo), (names[1], ev.team2_logo)):
+            key = _name_key(name)
+            if key and not logo and key not in cache:
+                missing_team_keys.add(key)
+
+    if not missing_team_keys:
+        return 0
+
+    print(f"[enrich] {len(missing_team_keys)} 件のチームのロゴ不明 — match ページを訪問して補完を試みる")
+    visited_urls: set = set()
+    added = 0
+    for ev in events:
+        if len(visited_urls) >= max_pages:
+            print(f"[enrich] max_pages={max_pages} に達したので停止")
+            break
+        if not ev.source_url or ev.source_url in visited_urls:
+            continue
+        # この match のチームのいずれかが missing なら訪問対象
+        names = (ev.teams or "").split(" vs ")
+        if len(names) < 2:
+            continue
+        if not any(_name_key(n) in missing_team_keys for n in names[:2]):
+            continue
+        visited_urls.add(ev.source_url)
+        logos = fetch_team_logos_from_match_page(ev.source_url)
+        time.sleep(0.5)  # vlr.gg に優しく
+        for key, logo in logos.items():
+            if key and key not in cache:
+                cache[key] = logo
+                added += 1
+                missing_team_keys.discard(key)
+        if not missing_team_keys:
+            break
+    print(f"[enrich] +{added} team logos via match pages ({len(visited_urls)} pages visited)")
+    return added
 
 
 def get_db():
@@ -518,13 +681,31 @@ def main():
             print("\n実際に削除するには:  python scripts/scraper.py cleanup --delete")
         return
 
-    pages = int(args[1]) if len(args) > 1 else 2
+    # 🌟 backfill モード: 過去試合を since_date まで遡る
+    # usage: python scripts/scraper.py backfill 2025-01-01 [max_pages]
+    since_date: Optional[str] = None
+    if mode == "backfill":
+        if len(args) < 2:
+            print("usage: python scripts/scraper.py backfill YYYY-MM-DD [max_pages]")
+            return
+        since_date = args[1]
+        # 念のため形式チェック
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", since_date):
+            print(f"日付形式が不正: {since_date} (YYYY-MM-DD)")
+            return
+        pages = int(args[2]) if len(args) > 2 else 200
+    else:
+        pages = int(args[1]) if len(args) > 1 else 2
 
     events: list[MatchEvent] = []
     if mode in ("all", "upcoming"):
         events.extend(scrape_upcoming())
     if mode in ("all", "results"):
         events.extend(scrape_results(pages=pages))
+    if mode == "backfill":
+        # backfill は upcoming も追加で取得(現在進行中の試合をスキップしないため)
+        events.extend(scrape_upcoming())
+        events.extend(scrape_results(pages=pages, since_date=since_date))
 
     print(f"[parse] {len(events)} events")
     if not events:
@@ -543,10 +724,12 @@ def main():
             print(f"[cache] seeded {seeded} entries from Firestore")
     # 今回スクレイプ分のロゴをキャッシュに追加
     added = update_cache_from_events(events, cache)
+    # 取れなかった events を match ページから補完(VCJ など)
+    enriched = enrich_missing_logos_via_match_pages(events, cache)
     # 取れなかった events をキャッシュで補完
     filled = fill_logos_from_cache(events, cache)
     save_logo_cache(cache)
-    print(f"[cache] total {len(cache)} teams (+{added} from scrape), filled {filled} missing logos")
+    print(f"[cache] total {len(cache)} teams (+{added} from scrape, +{enriched} from match pages), filled {filled} missing logos")
 
     created, updated = upsert(db, events)
     print(f"[firestore] +{created} new, ~{updated} updated")
