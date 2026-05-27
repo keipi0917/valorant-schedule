@@ -31,7 +31,12 @@ LocaleConfig.locales['jp'] = {
 LocaleConfig.defaultLocale = 'jp';
 
 // 本番用の広告IDとテスト用IDの切り替え設定
-const adUnitId = __DEV__ ? TestIds.BANNER : (Platform.OS === 'ios' ? 'ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx' : 'ca-app-pub-xxxxxxxxxxxxxxxx/xxxxxxxxxx');
+// iOS は AdMob で作成した V-HUB Banner の Ad Unit ID。Android は未取得なので暫定で iOS と同じ値。
+const adUnitId = __DEV__
+  ? TestIds.BANNER
+  : (Platform.OS === 'ios'
+      ? 'ca-app-pub-1117974208322223/6870237661'
+      : 'ca-app-pub-1117974208322223/6870237661');
 
 // 🌟 チーム名の変換辞書
 const teamAbbreviations: { [key: string]: string } = {
@@ -369,7 +374,7 @@ export default function HomeScreen() {
 
       <View style={{ alignItems: 'center', width: '100%', paddingVertical: 5 }}>
         <BannerAd
-          unitId={TestIds.BANNER}
+          unitId={adUnitId}
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
           requestOptions={{ requestNonPersonalizedAdsOnly: true }}
         />

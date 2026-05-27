@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Image, Linking, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+
+// 本番/テスト ID の切り替え (index.tsx と同じ Ad Unit を使用)
+const adUnitId = __DEV__
+  ? TestIds.BANNER
+  : (Platform.OS === 'ios'
+      ? 'ca-app-pub-1117974208322223/6870237661'
+      : 'ca-app-pub-1117974208322223/6870237661');
 
 // 🌟 試合詳細画面
 export default function EventDetailScreen() {
@@ -169,7 +176,7 @@ export default function EventDetailScreen() {
 
       <View style={{ alignItems: 'center', width: '100%', paddingVertical: 5 }}>
         <BannerAd
-          unitId={TestIds.BANNER}
+          unitId={adUnitId}
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
           requestOptions={{ requestNonPersonalizedAdsOnly: true }}
         />
