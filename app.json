@@ -26,16 +26,6 @@
         "NSUserTrackingUsageDescription": "お客様の興味に合わせた広告を表示するために、データへのアクセスを許可してください。"
       }
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#0F1923"
-      },
-      "package": "com.yourname.vhub",
-      "permissions": [
-        "com.google.android.gms.permission.AD_ID"
-      ]
-    },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
@@ -45,7 +35,6 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-1117974208322223~9495715244",
           "iosAppId": "ca-app-pub-1117974208322223~9495715244",
           "userTrackingUsageDescription": "お客様の興味に合わせた広告を表示するために、データへのアクセスを許可してください。"
         }

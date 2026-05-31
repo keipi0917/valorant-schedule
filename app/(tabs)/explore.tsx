@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
@@ -9,15 +9,19 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 
-export default function TabTwoScreen() {
+const PRIVACY_URL = 'https://keipi0917.github.io/valorant-schedule/privacy-policy.html';
+const SUPPORT_URL = 'https://keipi0917.github.io/valorant-schedule/';
+const CONTACT_MAIL = 'karino.keita.s2@dc.tohoku.ac.jp';
+
+export default function ExploreScreen() {
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
+      headerBackgroundColor={{ light: '#0F1923', dark: '#0F1923' }}
       headerImage={
         <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
+          size={260}
+          color="#FF4655"
+          name="info.circle"
           style={styles.headerImage}
         />
       }>
@@ -27,86 +31,113 @@ export default function TabTwoScreen() {
           style={{
             fontFamily: Fonts.rounded,
           }}>
-          Explore
+          V-HUB について
         </ThemedText>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
+
+      <ThemedText style={styles.lead}>
+        V-HUB は esports タクティカル FPS の試合スケジュール・結果・スコアを
+        まとめて閲覧できる非公式のファンメイドアプリです。
+      </ThemedText>
+
+      <Collapsible title="使い方">
         <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
+          ホーム画面では「今後の試合」と「過去の結果」をワンタップで切り替えて
+          確認できます。試合カードをタップすると、対戦カード・開始時刻 (JST)・
+          大会名・スコア・配信リンクが表示されます。
         </ThemedText>
         <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
+          カレンダー画面では月単位で試合のある日が一目でわかります。
+          試合詳細画面の「カレンダーに追加」をタップすると、iPhone の
+          標準カレンダーに予定として保存できます。
         </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
+      </Collapsible>
+
+      <Collapsible title="データソース">
+        <ThemedText>
+          公開されている esports 大会情報を 1 日 2 回自動で取得し、
+          すべての時刻を日本時間 (JST) に変換して表示しています。
+        </ThemedText>
+        <ThemedText>
+          配信リンクをタップすると、各リーグの公式 YouTube /
+          Twitch チャンネルへ遷移します。
+        </ThemedText>
+      </Collapsible>
+
+      <Collapsible title="注意事項">
+        <ThemedText>
+          ・本アプリはタイトル運営元および各大会公式とは関係のない、
+          非公式のファンメイドアプリです。
+        </ThemedText>
+        <ThemedText>
+          ・試合スケジュールは予告なく変更される場合があります。
+          最新情報は各大会の公式チャンネルをご確認ください。
+        </ThemedText>
+        <ThemedText>
+          ・チーム名・大会名・ロゴ等の表示は、試合情報を識別する
+          目的でのみ使用しています。
+        </ThemedText>
+      </Collapsible>
+
+      <Collapsible title="プライバシーポリシー">
+        <ThemedText>
+          本アプリはユーザーアカウントを必要とせず、氏名・メールアドレスなど
+          の個人情報は収集しません。広告配信のため Google AdMob を通じて
+          広告識別子 (IDFA) を利用する場合があります。詳細は以下をご覧ください。
+        </ThemedText>
+        <ExternalLink href={PRIVACY_URL}>
+          <ThemedText type="link">プライバシーポリシーを開く</ThemedText>
         </ExternalLink>
       </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
+
+      <Collapsible title="お問い合わせ">
         <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
+          ご意見・ご要望・不具合のご報告は以下までお願いいたします。
         </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
+        <ThemedText
+          type="link"
+          onPress={() => Linking.openURL(`mailto:${CONTACT_MAIL}`)}>
+          {CONTACT_MAIL}
         </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
+        <ExternalLink href={SUPPORT_URL}>
+          <ThemedText type="link">サポートサイトを開く</ThemedText>
         </ExternalLink>
       </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
+
+      <View style={styles.footer}>
+        <ThemedText style={styles.footerText}>V-HUB v1.0</ThemedText>
+        <ThemedText style={styles.footerText}>© 2026 Kei Karino</ThemedText>
+      </View>
     </ParallaxScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
+    color: '#FF4655',
+    bottom: -60,
+    right: -30,
     position: 'absolute',
+    opacity: 0.6,
   },
   titleContainer: {
     flexDirection: 'row',
     gap: 8,
+  },
+  lead: {
+    marginTop: 4,
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  footer: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#444',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    opacity: 0.6,
   },
 });

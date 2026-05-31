@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Platform, Image } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
@@ -31,12 +31,8 @@ LocaleConfig.locales['jp'] = {
 LocaleConfig.defaultLocale = 'jp';
 
 // 本番用の広告IDとテスト用IDの切り替え設定
-// iOS は AdMob で作成した V-HUB Banner の Ad Unit ID。Android は未取得なので暫定で iOS と同じ値。
-const adUnitId = __DEV__
-  ? TestIds.BANNER
-  : (Platform.OS === 'ios'
-      ? 'ca-app-pub-1117974208322223/6870237661'
-      : 'ca-app-pub-1117974208322223/6870237661');
+// AdMob で作成した V-HUB Banner の Ad Unit ID (iOS 専用ビルド)。
+const adUnitId = __DEV__ ? TestIds.BANNER : 'ca-app-pub-1117974208322223/6870237661';
 
 // 🌟 チーム名の変換辞書
 const teamAbbreviations: { [key: string]: string } = {
@@ -437,6 +433,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0F1923',
     width: '100%',
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
+    paddingBottom: 10,
   },
 });

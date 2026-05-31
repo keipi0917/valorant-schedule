@@ -1,4 +1,4 @@
-// Fallback for using MaterialIcons on Android and web.
+// Icon fallback using Material Icons (cross-platform).
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
@@ -21,8 +21,7 @@ const MAPPING = {
 } as IconMapping;
 
 /**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
+ * Icon component that renders the SF Symbols name mapped to a Material Icon.
  * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
  */
 export function IconSymbol({
