@@ -22,8 +22,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCalendarsUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
         "NSCalendarsFullAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
-        "NSUserTrackingUsageDescription": "お客様の興味に合わせた広告を表示するために、データへのアクセスを許可してください。"
+        "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。"
       }
     },
     "web": {
@@ -35,11 +34,9 @@
       [
         "react-native-google-mobile-ads",
         {
-          "iosAppId": "ca-app-pub-1117974208322223~9495715244",
-          "userTrackingUsageDescription": "お客様の興味に合わせた広告を表示するために、データへのアクセスを許可してください。"
+          "iosAppId": "ca-app-pub-1117974208322223~9495715244"
         }
-      ],
-      "expo-tracking-transparency"
+      ]
     ],
     "extra": {
       "router": {

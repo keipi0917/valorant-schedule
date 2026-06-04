@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -128,7 +127,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const fetchData = async () => {
-      await requestTrackingPermissionsAsync();
       try {
         const q = query(collection(db, "events"), orderBy("date", "asc"));
         const querySnapshot = await getDocs(q);
