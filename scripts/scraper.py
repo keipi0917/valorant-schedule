@@ -107,6 +107,10 @@ def _is_japan_event(event_name: str) -> bool:
 def _is_tier1_overseas(event_name: str) -> bool:
     """海外Tier1判定 — VCT国際リーグ + Masters + Champions のみ True。
     Challengers / Game Changers / Off-season tournaments は False。
+    注: vlr.gg のイベント名は "VCT 2026: Pacific Stage 1" のような形式と、
+    "Valorant Masters London 2026" のような "VCT" 表記なしの形式がある。
+    そのため Pacific/Americas/EMEA/China は "VCT" を要求し、Masters/Champions は
+    "VCT" の有無に関わらず Tier1 として扱う。
     """
     name = (event_name or "").upper()
 
@@ -116,20 +120,18 @@ def _is_tier1_overseas(event_name: str) -> bool:
     if "GAME CHANGERS" in name:
         return False
 
-    # VCT 系のみ Tier1 候補とする
-    if "VCT" not in name:
-        return False
-
     # VCT International League (Pacific / Americas / EMEA / China)
-    for region in ("PACIFIC", "AMERICAS", "EMEA", "CHINA"):
-        if region in name:
-            return True
+    # ここだけは "VCT" 表記を要求 (例: "VCT 2026: Pacific Stage 1")
+    if "VCT" in name:
+        for region in ("PACIFIC", "AMERICAS", "EMEA", "CHINA"):
+            if region in name:
+                return True
 
-    # VCT Masters
+    # Masters (例: "Valorant Masters London 2026" / "VCT 2026 Masters Toronto")
     if "MASTERS" in name:
         return True
 
-    # VCT Champions (ただし "CHAMPIONSHIP" は GC Championship と紛らわしいので除外)
+    # Champions (ただし "CHAMPIONSHIP" は GC Championship と紛らわしいので除外)
     if "CHAMPIONS" in name and "CHAMPIONSHIP" not in name:
         return True
 
