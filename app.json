@@ -2,8 +2,8 @@
   "expo": {
     "name": "V-HUB",
     "slug": "vhub",
-    "scheme": "vhub", 
-    "version": "1.0.0",
+    "scheme": "vhub",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
@@ -22,7 +22,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCalendarsUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
         "NSCalendarsFullAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。"
+        "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
+        "CFBundleDevelopmentRegion": "ja",
+        "CFBundleLocalizations": ["ja", "en"]
       }
     },
     "web": {
