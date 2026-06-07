@@ -238,8 +238,10 @@ def _parse_match_card(card, default_date: str, is_results: bool) -> Optional[Mat
 
     time_node = card.select_one(".match-item-time")
     time_text = time_node.get_text(strip=True) if time_node else ""
-    # vlr.gg は UTC 表示なので、ざっくり JST(+9h) に直しておく
-    time_jst = _shift_to_jst(time_text)
+    # vlr.gg は cookie / JS なしのリクエストには 米国東部時間 (America/New_York; EDT/EST)
+    # で時刻を返してくる。日付と時刻のペアで JST に変換する (日付の繰り上げも考慮)。
+    jst_date, time_jst = _convert_et_to_jst(default_date, time_text)
+    default_date = jst_date
 
     event_node = card.select_one(".match-item-event")
     event_name = event_node.get_text(" ", strip=True) if event_node else ""
@@ -283,14 +285,19 @@ def _parse_match_card(card, default_date: str, is_results: bool) -> Optional[Mat
     )
 
 
-def _shift_to_jst(time_text: str) -> str:
-    """'10:00 PM' のような UTC 時刻表記を JST(+9h) の 'HH:mm' に変換する。
+def _convert_et_to_jst(date_str: str, time_text: str) -> tuple[str, str]:
+    """vlr.gg は cookie / JS なしのリクエストに対して 米国東部時間 (America/New_York;
+    EDT は UTC-4 / EST は UTC-5、自動切替) で時刻を返してくる。これを (date, time)
+    のペアとして JST (Asia/Tokyo) に変換し、(jst_date YYYY-MM-DD, jst_time HH:mm)
+    を返す。日付の繰り上げ/繰り下げも自動で処理する。
 
-    解析に失敗したら元の文字列をそのまま返す。
+    解析に失敗したら入力をそのまま返す。
     """
+    if not time_text:
+        return date_str, time_text
     m = re.match(r"(\d{1,2}):(\d{2})\s*(AM|PM)?", time_text.strip(), re.IGNORECASE)
     if not m:
-        return time_text.strip()
+        return date_str, time_text.strip()
     hour = int(m.group(1))
     minute = int(m.group(2))
     suffix = (m.group(3) or "").upper()
@@ -298,8 +305,29 @@ def _shift_to_jst(time_text: str) -> str:
         hour += 12
     if suffix == "AM" and hour == 12:
         hour = 0
-    hour = (hour + 9) % 24  # UTC -> JST
-    return f"{hour:02d}:{minute:02d}"
+
+    # date_str が無い場合は時刻だけ +13h 仮定 (EDT 期間として無難な近似)
+    if not date_str:
+        hour_jst = (hour + 13) % 24
+        return date_str, f"{hour_jst:02d}:{minute:02d}"
+
+    try:
+        from datetime import datetime
+        try:
+            from zoneinfo import ZoneInfo
+        except ImportError:
+            from backports.zoneinfo import ZoneInfo  # type: ignore
+
+        y, mo, d = [int(x) for x in date_str.split("-")]
+        et = ZoneInfo("America/New_York")
+        jst = ZoneInfo("Asia/Tokyo")
+        dt_et = datetime(y, mo, d, hour, minute, tzinfo=et)
+        dt_jst = dt_et.astimezone(jst)
+        return dt_jst.date().isoformat(), f"{dt_jst.hour:02d}:{dt_jst.minute:02d}"
+    except Exception:
+        # フォールバック: 旧ロジック互換 (+13h、日付は据置)
+        hour_jst = (hour + 13) % 24
+        return date_str, f"{hour_jst:02d}:{minute:02d}"
 
 
 def _parse_listing(html: str, is_results: bool) -> tuple[list[MatchEvent], list[str]]:
@@ -621,12 +649,15 @@ def upsert(db, events: list[MatchEvent]) -> tuple[int, int]:
         ref = coll.document(doc_id)
         snap = ref.get()
         if snap.exists:
-            # 既存の試合は status / スコア / time / ロゴ(未保存なら) を更新
+            # 既存の試合は status / スコア / date / time / ロゴ(未保存なら) を更新
+            # ※ date は TZ 変換ロジック修正時に過去保存値がズレている可能性があるため
+            #   再スクレイプ時に必ず上書きする。
             existing = snap.to_dict() or {}
             patch = {
                 "status": ev.status,
                 "team1_score": ev.team1_score,
                 "team2_score": ev.team2_score,
+                "date": ev.date or existing.get("date", ""),
                 "time": ev.time or existing.get("time", ""),
             }
             # ロゴは新規スクレイプで取れた時だけ上書き(取れなかった場合は既存を維持)
