@@ -649,16 +649,29 @@ def upsert(db, events: list[MatchEvent]) -> tuple[int, int]:
         ref = coll.document(doc_id)
         snap = ref.get()
         if snap.exists:
-            # 既存の試合は status / スコア / date / time / ロゴ(未保存なら) を更新
+            # 既存の試合は status / スコア / date / time / teams / ロゴ(未保存なら) を更新
             # ※ date は TZ 変換ロジック修正時に過去保存値がズレている可能性があるため
             #   再スクレイプ時に必ず上書きする。
+            # ※ teams は TBD → 実チーム名の更新を反映する。ただし新値が完全 TBD で
+            #   既存が実チーム名の場合はスクレイプ失敗対策で既存を維持。
             existing = snap.to_dict() or {}
+            new_teams = ev.teams or ""
+            existing_teams = existing.get("teams", "")
+            if (
+                new_teams.upper() == "TBD VS TBD"
+                and existing_teams
+                and "TBD" not in existing_teams.upper()
+            ):
+                teams_value = existing_teams
+            else:
+                teams_value = new_teams or existing_teams
             patch = {
                 "status": ev.status,
                 "team1_score": ev.team1_score,
                 "team2_score": ev.team2_score,
                 "date": ev.date or existing.get("date", ""),
                 "time": ev.time or existing.get("time", ""),
+                "teams": teams_value,
             }
             # ロゴは新規スクレイプで取れた時だけ上書き(取れなかった場合は既存を維持)
             if ev.team1_logo:
