@@ -17,15 +17,25 @@ on:
           - all
           - upcoming
           - results
+          - backfill
+      since_date:
+        description: 'backfill モード時: この日付 (YYYY-MM-DD) 以降の結果を取り直す'
+        required: false
+        default: ''
       pages:
         description: 'Result pages (results モード時のみ)'
         required: false
         default: '2'
 
+# keepalive ステップでワークフローを再有効化するために actions: write が必要
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -58,11 +68,22 @@ jobs:
         run: |
           MODE="${{ github.event.inputs.mode || 'all' }}"
           PAGES="${{ github.event.inputs.pages || '2' }}"
-          if [ "$MODE" = "results" ]; then
+          SINCE="${{ github.event.inputs.since_date }}"
+          if [ "$MODE" = "backfill" ]; then
+            python scripts/scraper.py backfill "$SINCE" 200
+          elif [ "$MODE" = "results" ]; then
             python scripts/scraper.py results "$PAGES"
           else
             python scripts/scraper.py "$MODE"
           fi
+
+      # GitHub はリポジトリに 60 日間コミットが無いと schedule 実行を自動停止する
+      # (2026-08-14 にこれで停止していた)。毎回 API で有効化し直して停止を防ぐ。
+      - name: Keepalive (prevent 60-day auto-disable)
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/scrape.yml/enable" || echo "::warning::keepalive failed"
 
       - name: Cleanup secret file
         if: always()
