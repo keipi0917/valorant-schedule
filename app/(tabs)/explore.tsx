@@ -55,7 +55,7 @@ export default function ExploreScreen() {
 
       <Collapsible title="データソース">
         <ThemedText>
-          公開されている esports 大会情報を 1 日 2 回自動で取得し、
+          公開されている esports 大会情報を約 30 分ごとに自動で取得し、
           すべての時刻を日本時間 (JST) に変換して表示しています。
         </ThemedText>
         <ThemedText>
@@ -105,7 +105,7 @@ export default function ExploreScreen() {
       </Collapsible>
 
       <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>V-HUB v1.0</ThemedText>
+        <ThemedText style={styles.footerText}>V-HUB v1.0.2</ThemedText>
         <ThemedText style={styles.footerText}>© 2026 Kei Karino</ThemedText>
       </View>
     </ParallaxScrollView>

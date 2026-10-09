@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 
@@ -12,7 +12,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../languageContext';
@@ -70,9 +70,22 @@ const getJstToday = () => {
   return jstNow.toISOString().split('T')[0];
 };
 
+// 何日前までの過去試合を読み込むか。全件取得だと試合が増えるほど
+// 起動が遅くなり Firestore の読み取り課金も増えるため範囲を絞る。
+const PAST_DAYS_TO_LOAD = 90;
+const getJstDateDaysAgo = (days: number) => {
+  const jst = new Date(Date.now() + (9 * 60 * 60 * 1000) - days * 24 * 60 * 60 * 1000);
+  return jst.toISOString().split('T')[0];
+};
+
+// リスト内に 1 枠だけ広告を差し込む位置 (この件数の試合の後)
+const INLINE_AD_AFTER = 4;
+
 export default function HomeScreen() {
   const [allEvents, setAllEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [activeTab, setActiveTab] = useState('ALL');
   // 🌟 今後/過去 切替
@@ -88,7 +101,16 @@ export default function HomeScreen() {
 
   // 朝7時のサマリー通知(未来の試合のみ)
   const scheduleDailySummaryNotifications = async (eventsData: any[]) => {
+    // iOS は許可を取らないと通知がスケジュールされても届かない。
+    // 以前は許可リクエストが無く、朝の通知が誰にも届いていなかった。
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status === 'undetermined') {
+      ({ status } = await Notifications.requestPermissionsAsync());
+    }
+    if (status !== 'granted') return;
+
     await Notifications.cancelAllScheduledNotificationsAsync();
+    await Notifications.setBadgeCountAsync(0);
 
     const today = getJstToday();
     const matchesByDate: { [key: string]: any[] } = {};
@@ -125,22 +147,38 @@ export default function HomeScreen() {
     }
   };
 
+  const fetchData = async () => {
+    try {
+      const q = query(
+        collection(db, "events"),
+        where("date", ">=", getJstDateDaysAgo(PAST_DAYS_TO_LOAD)),
+        orderBy("date", "asc"),
+      );
+      const querySnapshot = await getDocs(q);
+      const firebaseData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllEvents(firebaseData);
+      setLoadError(false);
+      // 通知のスケジュール失敗で一覧表示まで失敗扱いにしない
+      scheduleDailySummaryNotifications(firebaseData).catch(e =>
+        console.warn("通知のスケジュールに失敗:", e)
+      );
+    } catch (error) {
+      console.error("Firebaseからのデータ取得エラー:", error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const q = query(collection(db, "events"), orderBy("date", "asc"));
-        const querySnapshot = await getDocs(q);
-        const firebaseData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllEvents(firebaseData);
-        await scheduleDailySummaryNotifications(firebaseData);
-      } catch (error) {
-        console.error("Firebaseからのデータ取得エラー:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
+  };
 
   // 🌟 カレンダーのドット: 今後=赤、過去=グレー
   const markedDates = useMemo(() => {
@@ -339,6 +377,32 @@ export default function HomeScreen() {
     );
   };
 
+  // 一覧に広告枠を 1 つだけ差し込む (試合が少ない時は差し込まない)
+  const listData = useMemo(() => {
+    if (filteredEvents.length <= INLINE_AD_AFTER) return filteredEvents;
+    return [
+      ...filteredEvents.slice(0, INLINE_AD_AFTER),
+      { id: '__inline_ad__', isAd: true },
+      ...filteredEvents.slice(INLINE_AD_AFTER),
+    ];
+  }, [filteredEvents]);
+
+  const renderListItem = ({ item }: { item: any }) => {
+    if (item.isAd) {
+      return (
+        <View style={styles.inlineAd}>
+          <Text style={styles.inlineAdLabel}>{locale === 'ja' ? '広告' : 'Ad'}</Text>
+          <BannerAd
+            unitId={adUnitId}
+            size={BannerAdSize.MEDIUM_RECTANGLE}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      );
+    }
+    return renderItem({ item });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -350,18 +414,32 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={filteredEvents}
+        data={listData}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        renderItem={renderListItem}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF4655" />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {timeMode === 'past'
-                ? (locale === 'ja' ? '過去の試合データがありません' : 'No past matches')
-                : (t?.noMatches || "No matches found")}
-            </Text>
+            {loadError ? (
+              <>
+                <Text style={styles.emptyText}>
+                  {locale === 'ja' ? '試合データを読み込めませんでした' : 'Could not load matches'}
+                </Text>
+                <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+                  <Text style={styles.clearDateText}>{locale === 'ja' ? '再読み込み' : 'Retry'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.emptyText}>
+                {timeMode === 'past'
+                  ? (locale === 'ja' ? '過去の試合データがありません' : 'No past matches')
+                  : (t?.noMatches || "No matches found")}
+              </Text>
+            )}
           </View>
         }
       />
@@ -426,6 +504,9 @@ const styles = StyleSheet.create({
   eventTitle: { color: '#8B97A2', fontSize: 12, flex: 1, marginLeft: 5 },
   emptyContainer: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: '#8B97A2', fontSize: 14 },
+  retryButton: { marginTop: 12, backgroundColor: '#FF4655', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 4 },
+  inlineAd: { alignItems: 'center', marginHorizontal: 15, marginTop: 8, marginBottom: 20 },
+  inlineAdLabel: { alignSelf: 'flex-start', color: '#5A6470', fontSize: 10, fontWeight: 'bold', marginBottom: 4 },
   adContainer: {
     alignItems: 'center',
     justifyContent: 'center',
