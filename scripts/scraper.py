@@ -756,7 +756,8 @@ def main():
     print(f"[parse] {len(events)} events")
     if not events:
         print("0件でした。HTML構造が変わったか、ネットワークの問題が考えられます。")
-        return
+        # 失敗として終了させ、GitHub Actions の失敗通知メールで気付けるようにする
+        sys.exit(1)
 
     db = get_db()
 
