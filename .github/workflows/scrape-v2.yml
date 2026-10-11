@@ -1,0 +1,90 @@
+name: Scrape vlr.gg v2
+
+on:
+  # 30 分ごとに実行 (試合中のスコア/状態の反映を早めるため)
+  # vlr.gg に負荷をかけすぎない範囲で、できるだけ高頻度に更新する。
+  schedule:
+    - cron: '*/30 * * * *'
+  # 手動でも実行できるように
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Scrape mode'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - upcoming
+          - results
+          - backfill
+      since_date:
+        description: 'backfill モード時: この日付 (YYYY-MM-DD) 以降の結果を取り直す'
+        required: false
+        default: ''
+      pages:
+        description: 'Result pages (results モード時のみ)'
+        required: false
+        default: '2'
+
+# keepalive ステップでワークフローを再有効化するために actions: write が必要
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Write Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is not set"
+            exit 1
+          fi
+          mkdir -p scripts
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > scripts/serviceAccountKey.json
+          # 軽い妥当性チェック
+          python -c "import json; json.load(open('scripts/serviceAccountKey.json'))"
+
+      - name: Run scraper
+        run: |
+          MODE="${{ github.event.inputs.mode || 'all' }}"
+          PAGES="${{ github.event.inputs.pages || '2' }}"
+          SINCE="${{ github.event.inputs.since_date }}"
+          if [ "$MODE" = "backfill" ]; then
+            python scripts/scraper.py backfill "$SINCE" 200
+          elif [ "$MODE" = "results" ]; then
+            python scripts/scraper.py results "$PAGES"
+          else
+            python scripts/scraper.py "$MODE"
+          fi
+
+      # GitHub はリポジトリに 60 日間コミットが無いと schedule 実行を自動停止する
+      # (2026-08-14 にこれで停止していた)。毎回 API で有効化し直して停止を防ぐ。
+      - name: Keepalive (prevent 60-day auto-disable)
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/scrape-v2.yml/enable" || echo "::warning::keepalive failed"
+
+      - name: Cleanup secret file
+        if: always()
+        run: rm -f scripts/serviceAccountKey.json
