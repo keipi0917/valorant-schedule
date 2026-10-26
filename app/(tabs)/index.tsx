@@ -19,6 +19,7 @@ import { useLanguage } from '../../languageContext';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { useAdRequestOptions } from '../../lib/adsConsent';
 
 // カレンダーの日本語設定
 LocaleConfig.locales['jp'] = {
@@ -92,6 +93,7 @@ export default function HomeScreen() {
   const [timeMode, setTimeMode] = useState<'upcoming' | 'past'>('upcoming');
   const { t, locale, setLocale } = useLanguage();
   const router = useRouter();
+  const adRequestOptions = useAdRequestOptions();
 
   const toggleLanguage = () => {
     if (typeof setLocale === 'function') {
@@ -395,7 +397,7 @@ export default function HomeScreen() {
           <BannerAd
             unitId={adUnitId}
             size={BannerAdSize.MEDIUM_RECTANGLE}
-            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+            requestOptions={adRequestOptions}
           />
         </View>
       );
@@ -448,7 +450,7 @@ export default function HomeScreen() {
         <BannerAd
           unitId={adUnitId}
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-          requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          requestOptions={adRequestOptions}
         />
       </View>
 

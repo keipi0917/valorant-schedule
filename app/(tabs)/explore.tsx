@@ -105,7 +105,7 @@ export default function ExploreScreen() {
       </Collapsible>
 
       <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>V-HUB v1.0.2</ThemedText>
+        <ThemedText style={styles.footerText}>V-HUB v1.0.3</ThemedText>
         <ThemedText style={styles.footerText}>© 2026 Kei Karino</ThemedText>
       </View>
     </ParallaxScrollView>
