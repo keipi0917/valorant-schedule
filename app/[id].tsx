@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { useAdRequestOptions } from '../lib/adsConsent';
 
 // 本番/テスト ID の切り替え (index.tsx と同じ Ad Unit を使用)
 const adUnitId = __DEV__ ? TestIds.BANNER : 'ca-app-pub-1117974208322223/6870237661';
@@ -15,6 +16,7 @@ export default function EventDetailScreen() {
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const adRequestOptions = useAdRequestOptions();
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -174,7 +176,7 @@ export default function EventDetailScreen() {
         <BannerAd
           unitId={adUnitId}
           size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-          requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          requestOptions={adRequestOptions}
         />
       </View>
     </SafeAreaView>
