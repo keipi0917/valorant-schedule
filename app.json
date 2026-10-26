@@ -3,7 +3,7 @@
     "name": "V-HUB",
     "slug": "vhub",
     "scheme": "vhub",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,11 @@
         "NSCalendarsFullAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
         "NSCalendarsWriteOnlyAccessUsageDescription": "試合の日程をiPhoneのカレンダーに登録・表示するために使用します。",
         "CFBundleDevelopmentRegion": "ja",
-        "CFBundleLocalizations": ["ja", "en"]
+        "CFBundleLocalizations": [
+          "ja",
+          "en"
+        ],
+        "NSUserTrackingUsageDescription": "お客様の興味に合った広告を表示するために使用します。許可しなくてもアプリの機能はすべて利用できます。"
       }
     },
     "web": {
@@ -36,7 +40,17 @@
       [
         "react-native-google-mobile-ads",
         {
-          "iosAppId": "ca-app-pub-1117974208322223~9495715244"
+          "iosAppId": "ca-app-pub-1117974208322223~9495715244",
+          "userTrackingUsageDescription": "お客様の興味に合った広告を表示するために使用します。許可しなくてもアプリの機能はすべて利用できます。",
+          "skAdNetworkItems": [
+            "cstr6suwn9.skadnetwork"
+          ]
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "お客様の興味に合った広告を表示するために使用します。許可しなくてもアプリの機能はすべて利用できます。"
         }
       ]
     ],
